@@ -2,8 +2,15 @@
 setlocal enabledelayedexpansion
 
 :: Set the start and end IP addresses
-set "start_ip=192.168.1.1"
-set "end_ip=192.168.1.10"
+set "start_ip=%1"
+set "end_ip=%2"
+
+:: Set the number of packets sent to each address, or default to 1
+if "%3"=="" (
+    set "packet_number=1"
+) else (
+    set "packet_number=%3"
+)
 
 :: Extract the octets
 for /f "tokens=1-4 delims=." %%a in ("%start_ip%") do (
@@ -21,7 +28,7 @@ for /f "tokens=1-4 delims=." %%a in ("%end_ip%") do (
 )
 
 for /L %%a in (!start_octet1!,1,!end_octet1!) do (
-    REM Check if the current value exceeds 255
+    :: Check if the current value exceeds 255
     if %%a lss 256 (
         
         for /L %%b in (!start_octet2!,1,!end_octet2!) do (
@@ -37,7 +44,7 @@ for /L %%a in (!start_octet1!,1,!end_octet1!) do (
                                 
                                 echo Pinging !current_ip!
                                 
-                                ping -n 1 !current_ip! | findstr /i "TTL=" > nul
+                                ping -n !packet_number! !current_ip! | findstr /i "TTL=" > nul
                                 if !errorlevel! equ 0 (
                                     echo !current_ip! is reachable.
                                 ) else (
