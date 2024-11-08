@@ -1,62 +1,57 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Set the start and end IP addresses
-set "start_ip=%1"
-set "end_ip=%2"
+REM Set the first octet
+set "octet1=%1"
 
-:: Set the number of packets sent to each address, or default to 1
-if "%3"=="" (
+REM Set the start and end IP addresses
+set "start_ip=%2"
+set "end_ip=%3"
+
+REM Set the number of packets sent to each address, or default to 1
+if "%4"=="" (
     set "packet_number=1"
 ) else (
-    set "packet_number=%3"
+    set "packet_number=%4"
 )
 
-:: Extract the octets
-for /f "tokens=1-4 delims=." %%a in ("%start_ip%") do (
-    set "start_octet1=%%a"
-    set "start_octet2=%%b"
-    set "start_octet3=%%c"
-    set "start_octet4=%%d"
-)
+REM Convert IP addresses to 32-bit integer
+call :octetsToInt %start_ip% startInt
+call :octetsToInt %end_ip% endInt
+set "current_last_3_octets="
 
-for /f "tokens=1-4 delims=." %%a in ("%end_ip%") do (
-    set "end_octet1=%%a"
-    set "end_octet2=%%b"
-    set "end_octet3=%%c"
-    set "end_octet4=%%d"
-)
+for /L %%a in (!startInt!,1,!endInt!) do (
 
-for /L %%a in (!start_octet1!,1,!end_octet1!) do (
-    :: Check if the current value exceeds 255
-    if %%a lss 256 (
-        
-        for /L %%b in (!start_octet2!,1,!end_octet2!) do (
-            if %%b lss 256 (
-                
-                for /L %%c in (!start_octet3!,1,!end_octet3!) do (
-                    if %%c lss 256 (
-
-                        for /L %%d in (!start_octet4!,1,!end_octet4!) do (
-                            if %%d lss 256 (
-
-                                set "current_ip=%%a.%%b.%%c.%%d"
+    call :intToOctets %%a current_last_3_octets
+    
+    set "current_ip=!octet1!.!current_last_3_octets!"
                                 
-                                echo Pinging !current_ip!
-                                
-                                ping -n !packet_number! !current_ip! | findstr /i "TTL=" > nul
-                                if !errorlevel! equ 0 (
-                                    echo !current_ip! is reachable.
-                                ) else (
-                                    echo !current_ip! is not reachable.
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
+    echo Pinging !current_ip!
+    
+    ping -n !packet_number! !current_ip! | findstr /i "TTL=" > nul
+    if !errorlevel! equ 0 (
+        echo !current_ip! is reachable.
+    ) else (
+        echo !current_ip! is not reachable.
     )
 )
 
 endlocal
+exit /b
+
+REM Function to convert 3 octets to integer
+:octetsToInt
+set ip=%1
+for /f "tokens=1-3 delims=." %%a in ("%ip%") do (
+    set "octet2=%%a"
+    set "octet3=%%b"
+    set "octet4=%%c"
+)
+set /A "%~2=(octet2*256*256) + (octet3*256) + octet4"
+exit /b
+
+REM Function to convert integer to 3 octets
+:intToOctets
+set /A "octet2=%1>>16 & 255, octet3=%1>>8 & 255, octet4=%1 & 255"
+set "%~2=!octet2!.!octet3!.!octet4!"
+exit /b
